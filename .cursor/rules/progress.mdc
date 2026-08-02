@@ -1,0 +1,145 @@
+---
+description: Running build log — what has shipped
+alwaysApply: true
+---
+
+# Progress log
+
+## Status
+
+- [x] **Day 1 — Foundations** (done)
+- [x] **Day 2 — Data pipeline** (done)
+- [x] **Day 3–4 — Wire `[owner]/[repo]` to `timeline.get` + minimal event list UI** (done)
+- [x] **Day 5 — Timeline visual + Framer Motion** (done)
+- [x] **Day 6 — Repo header + OpenGraph + share link** (done)
+- [x] **Day 7 — Error screens** (done)
+- [x] **Day 8 — Big-repo performance** (done)
+- [x] **Day 9 — README polish + /about** (done)
+- [x] **Day 9.5 — Timeline UX / QoL** (done)
+- [x] **Day 9.75 — Pre-ship hardening** (done)
+- [x] **Day 10 — Ship hardening** (code done; cloud provision + live badge after deploy)
+
+## 2026-07-31 — Day 10 Ship hardening (CODE DONE)
+
+- [x] Sanitize upstream/error-boundary messages; capture originals to Sentry
+- [x] Harden rate-limit IP (`x-vercel-forwarded-for` first); fail closed on Redis errors
+- [x] Required deployed env: GitHub + Supabase + Upstash + `NEXT_PUBLIC_SITE_URL` (prod + preview)
+- [x] RLS enabled on `repo_snapshots` (declarative + migration)
+- [x] Host allowlist tightened to `github.com` / `www.github.com`; tRPC `maxBatchSize: 5`
+- [x] Nonce CSP via `proxy.ts` (Report-Only on response)
+- [x] Redis single-flight build lock + global GitHub build budget (`lib/build-lock.ts`)
+- [x] OG image cache-only (no cold builds from crawlers)
+- [x] React Query skips retry on NOT_FOUND / TOO_MANY_REQUESTS / etc.; no double cache read
+- [x] Sitemap + robots sitemap ref; root/About OG metadata
+- [x] Sentry sourcemap org/project via env; client config → `instrumentation-client.ts`
+- [x] Mobile nav; theme-switch focus ring; decorative markers `aria-hidden`
+- [x] Switched Hugeicons Pro → `@hugeicons/core-free-icons` (public `bun install`)
+- [x] Screenshot captured (`docs/screenshot.png`); deploy runbook in `docs/DEPLOY.md`
+- [ ] Cloud Supabase + Upstash + Vercel env + live URL badge (operator — see DEPLOY.md)
+
+## 2026-07-21 — Day 9.75 Pre-ship hardening (DONE)
+
+- [x] Per-IP rate limit on uncached builds (`lib/rate-limit.ts`, Upstash sliding window 10/min, no-op without env, fail-open) inside `timeline.get`; cache hits exempt; IP via `headers()` in `createTRPCContext` — covers page RSC, `/api/trpc`, OG image
+- [x] Stampede dedupe: in-flight build map in `buildTimeline` keyed owner/repo
+- [x] `repo_snapshots` eviction: `pg_cron` extension (declarative + `db diff` migration) + nightly delete >48h job migration; verified via `db reset` + `cron.job` query
+- [x] Security headers in `next.config.mjs` (HSTS, X-Frame-Options DENY, nosniff, Referrer-Policy, Permissions-Policy); strict CSP deferred (needs nonce middleware)
+- [x] `maxDuration = 60` on repo page, OG image, tRPC route
+- [x] `bun test` suite (37 tests): parse-repo, detectActivitySpikes (+ zero-stddev guard fix), errors/guards, reviveTimeline; `test` + `typecheck` scripts
+- [x] CI (`.github/workflows/ci.yml`): setup-bun, frozen lockfile, lint/typecheck/test/build; Dependabot weekly
+- [x] `server-only` on `lib/{github,repolens,cache,supabase}.ts`; harness + tests run with `--conditions=react-server`
+- [x] Runtime prod env check (`lib/env.ts` via `instrumentation.ts`): throws on missing `GITHUB_TOKEN`/`SUPABASE_*`, warns on missing Upstash/Sentry
+- [x] Hygiene: `app/robots.ts`, canonical URL on repo pages, `/api/health`, `engines.node 22.x`, host allowlist fix in `parse-repo` (`*.github.com` only)
+- [x] Fixed broken eslint config (`recommended-legacy` for `@next/next` plugin) — first working `--fix` run applied project Prettier/import-order across the repo
+- [x] Verified: typecheck, 37/37 tests, `bun run build` clean, prod smoke test (headers/health/robots/cached repo page 200)
+
+### Ship-day env additions
+
+- `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` (rate limiter is disabled without them)
+- `SENTRY_AUTH_TOKEN` (sourcemap upload)
+
+## 2026-07-20 — Day 9.5 Timeline UX / QoL (DONE)
+
+- [x] Extracted shared `EventCard` / `EventMarker` into `event-card.tsx`
+- [x] Client controls: filter (4 types), sort asc/desc, timeline vs grouped view
+- [x] URL query sync (`?view=&sort=&hide=`) for shareable filtered views
+- [x] `TimelineSummary` derived-stats strip (age, releases, contributors, busiest week)
+- [x] `GroupedView` kanban lanes (desktop columns / mobile tabs)
+- [x] Novice blurbs + tooltips on event chips / jargon / summary tiles
+- [x] HeroUI v3 brand tokens in `globals.css` (accent + radius + dark surfaces)
+- [x] Home hero rewrite + chip-styled example buttons; About uses shared blurbs
+- [x] Skeleton mirrors summary + controls
+- [x] `bun run build` clean
+
+## 2026-07-20 — Day 9 README + /about polish (DONE)
+
+- [x] `LICENSE` copyright: `2023 Next UI` → `2026 Anfernee`
+- [x] README rewrite in product voice (what it is / where it's going / Try it / screenshot deferred to ship)
+- [x] `/about` rebuild: What / How it works (4 event types + icons) / Where it's going / Built with / Links
+- [x] About layout: left-aligned `max-w-2xl` (was centered `max-w-lg`)
+- [x] Home example repo chips (`vercel/next.js`, `facebook/react`, `home-assistant/core`)
+- [x] Root `app/opengraph-image.tsx` for homepage shares
+- [x] Footer: year + About + GitHub; Repolens lens mark via `app/icon.tsx` + navbar `Logo` (replaced HeroUI template favicon)
+- [x] `bun run build` clean
+- [ ] Day 10: live URL badge, real screenshot, deploy (see 2026-07-31 entry)
+
+## 2026-07-20 — Day 8 big-repo performance (DONE)
+
+- [x] `generateMetadata` shares request-scoped `fetchQuery` with the page (dedupes double build on miss)
+- [x] Client-session SWR: `staleTime` 5m / `gcTime` 30m in `lib/trpc/query-client.ts`
+- [x] Early-stop release pagination (`getReleases` stops at limit)
+- [x] Contributor first-commit fan-out capped at concurrency 4 (`mapWithConcurrency`)
+- [x] Commit-activity 202 backoff: 6 attempts, 1s×n delays
+- [x] Soft-fail mega-repo contributor-list 403 (e.g. `torvalds/linux`)
+- [x] Harness timings via `REPOLENS_TIMING=1` (default for `bun run timeline`)
+- [x] Verified: `home-assistant/core` ~9s miss / ~128ms hit; `vscode` ~6s; `kubernetes` ~7s; `linux` builds without contributors
+- [x] `bun run build` clean
+
+## 2026-07-20 — Day 7 error screens (DONE)
+
+- [x] Shared `components/error-state.tsx` (`ErrorState` + `RefreshButton` / `ResetButton`)
+- [x] Typed helpers: `isTRPCRateLimited`, `isTRPCBadRequest`, `getRateLimitRetryAfter`, `isValidOwnerRepoParams`
+- [x] Repo page maps invalid params + rate limit to inline UI; `NOT_FOUND` → `notFound()`; upstream → segment `error.tsx`
+- [x] Segment not-found/error on shared surface; Sentry capture in error boundaries
+- [x] Root `error.tsx` + `not-found.tsx` + `global-error.tsx`
+- [x] `bun run build` clean
+
+## 2026-07-20 — Day 6 repo header + OpenGraph + share (DONE)
+
+- [x] `lib/site-url.ts` + root `metadataBase`; `NEXT_PUBLIC_SITE_URL` in `.env.example`
+- [x] `generateMetadata` on `/[owner]/[repo]` via `caller.timeline.get` (soft fallback title)
+- [x] Dynamic `opengraph-image.tsx` (`ImageResponse`: avatar, fullName, description, Repolens mark)
+- [x] Header polish: owner Avatar + Share/Copy link button; skeleton mirrors layout
+- [x] `bun run build` clean
+
+## 2026-07-20 — Day 5 timeline visual (DONE)
+
+- [x] Added `motion`, `@hugeicons/react`, `@hugeicons-pro/core-duotone-rounded`
+- [x] `event-config.tsx` — per-type icon + color (emerald / violet / amber / sky)
+- [x] Alternating desktop timeline + single-column mobile rail; HeroUI cards with type-specific detail lines
+- [x] Scroll-reveal via `useInView` + scroll progress line; `useReducedMotion` fallback
+- [x] Skeleton mirrors alternating layout
+- [x] `bun run build` clean
+
+## 2026-07-20 — Day 3–4 timeline wiring (DONE)
+
+- [x] Migrated RSC layer to tRPC App Router prefetch pattern (`createTRPCOptionsProxy`, `prefetch`, `HydrateClient`); retained `caller` for future metadata
+- [x] Wired `/[owner]/[repo]` to `timeline.get` via `await fetchQuery` → hydrate → `useSuspenseQuery` (await avoids pending-dehydrate rejection noise on errors)
+- [x] Minimal event-list UI (repo header + typed rows) + skeleton loading + segment error boundary
+- [x] `NOT_FOUND` maps to segment `not-found.tsx` via `notFound()`
+- [x] `bun run build` clean
+
+## 2026-07-19 — Day 1+2 foundations (DONE)
+
+- [x] Stripped HeroUI demo template; rebranded to Repolens home + about + repo placeholder
+- [x] Env scaffolding (`.env.example`); local Supabase in `.env.local`
+- [x] Sentry wired via `@sentry/nextjs` (no-op without DSN)
+- [x] Declarative schema `supabase/schemas/10_tables.sql` → migration `init_repo_snapshots`
+- [x] GitHub pipeline (`lib/github.ts`, `lib/repolens.ts`) + Bun harness `bun run timeline`
+- [x] tRPC v11 (`timeline.get`) with RSC caller + `/api/trpc` HTTP adapter
+- [x] Cache layer with 24h TTL + schema_version; service_role-only grants verified
+- [x] Cursor rules + `docs/v2-ideas.md` + `docs/SETUP_CHECKLIST.md` + README
+- [x] `bun run build` clean; commit `463e628`
+
+### Notes
+
+- Hydration warning with `data-np-intersection-state` is a password-manager extension (e.g. 1Password), not an app bug.

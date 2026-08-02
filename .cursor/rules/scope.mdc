@@ -1,0 +1,30 @@
+---
+description: v0.1 scope lock — what is in, what is parked, anti-abandon rules
+alwaysApply: true
+---
+
+# Scope lock (v0.1)
+
+## IN
+
+- Public repo input (URL or owner/repo)
+- Timeline with exactly 4 event types: first commit, releases, top-contributor first commits, monthly activity spikes
+- Supabase-cached results
+- Graceful handling of huge/private/bad input and rate limits
+- Shareable URL per repo (`/[owner]/[repo]`)
+- Live deploy with HTTPS (shipping goal)
+
+## OUT — park in docs/v2-ideas.md
+
+- Auth / accounts / favorites
+- Private repos
+- AI-generated anything
+- Multi-repo dashboards / comparisons
+- Custom event types or filters beyond the 4
+- Mobile-perfect polish (desktop-first; don't break mobile)
+
+## Anti-abandon
+
+1. "Ooh what if…" → `docs/v2-ideas.md`, not this sprint.
+2. Timeline visual polish gets one dedicated day — then ship.
+3. No auth "so we can save favorites."

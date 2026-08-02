@@ -1,0 +1,27 @@
+---
+description: TypeScript, HeroUI v3, tRPC, and server/client conventions
+globs: "**/*.{ts,tsx}"
+alwaysApply: false
+---
+
+# Conventions
+
+- Prefer Server Components. Add `"use client"` only for interactivity / hooks.
+- Use HeroUI v3 compound components (`TextField` + `Label` + `Input`, not v2 APIs). Prefer `render` over `asChild` (v3 has no `asChild`).
+- Tailwind v4 + `@heroui/styles` — no shadcn.
+- Validate external input with zod. Map domain errors via `lib/errors.ts` → `TRPCError`. Use `isTRPCNotFound()` for missing/private repos.
+
+## tRPC (App Router)
+
+- Routers live in `server/routers/`; init in `server/trpc.ts`. HTTP adapter: `app/api/trpc/[trpc]/route.ts`.
+- **RSC data for the page:** `await getQueryClient().fetchQuery(trpc.*.queryOptions(...))`, then wrap children in `<HydrateClient>`. Await (don't fire-and-forget `prefetch`) when you need error mapping or a clean dehydrate of success — pending dehydrate + reject spams "dehydrated as pending ended up rejecting".
+- **Client consume:** `useTRPC()` + `useSuspenseQuery(trpc.*.queryOptions(...))` with matching input. Provider is `TRPCReactProvider` in `app/providers.tsx`.
+- **`caller`:** in-process only for server-only needs detached from React Query (e.g. future `generateMetadata`). Do not use a stale `api()` helper — that pattern was removed.
+- **Errors:** validate owner/repo params before fetch; `NOT_FOUND` → `notFound()` + segment `not-found.tsx`; `TOO_MANY_REQUESTS` → inline rate-limit `ErrorState`; other procedure failures → segment `error.tsx`. Shared UI: `components/error-state.tsx`.
+- Helpers: `lib/trpc/server.tsx` (`trpc`, `getQueryClient`, `HydrateClient`, `prefetch`, `caller`), `lib/trpc/client.tsx`, `lib/trpc/query-client.ts` (superjson dehydrate/hydrate).
+
+## Other
+
+- Schema changes: edit `supabase/schemas/*.sql`, then `supabase db diff -f <name>`. Do not hand-write migration DDL.
+- Package/scripts: Bun (`bun add`, `bun run timeline`).
+- Keep functions focused; avoid drive-by refactors outside the task.

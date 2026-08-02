@@ -1,0 +1,50 @@
+---
+description: Repolens architecture, stack, folder map, and data flow
+alwaysApply: true
+---
+
+# Repolens architecture
+
+## Stack
+
+- Next.js 16 (App Router) + React 19 + TypeScript
+- Bun (package manager + scripts)
+- Tailwind CSS v4 + HeroUI v3
+- Motion (`motion/react`) for timeline scroll-reveal
+- Hugeicons (`@hugeicons/react` + `@hugeicons/core-free-icons`)
+- Supabase Postgres (declarative schemas in `supabase/schemas/`)
+- GitHub REST via Octokit (+ retry/throttling)
+- tRPC v11 (superjson) — RSC `fetchQuery` + `HydrateClient`; client `useSuspenseQuery`; HTTP at `/api/trpc`; `generateMetadata` shares request-scoped `fetchQuery` (dedupes with page)
+- Sentry (`@sentry/nextjs`)
+
+## Data flow
+
+Home input → `/[owner]/[repo]` Server Component → `await fetchQuery(trpc.timeline.get.queryOptions)` → `HydrateClient` → client `useSuspenseQuery` → `buildTimeline()` → cache (`repo_snapshots`, 24h TTL) → GitHub on miss.
+
+Invalid owner/repo params → inline `ErrorState` (no GitHub call). `NOT_FOUND` → `notFound()` (segment `not-found.tsx`). `TOO_MANY_REQUESTS` → inline rate-limit `ErrorState`. Other failures → segment `error.tsx`. App-wide: root `error.tsx` / `not-found.tsx` / `global-error.tsx`. Loading: route `loading.tsx` + Suspense `TimelineSkeleton`.
+
+Shareable surface is the page URL, not a REST endpoint.
+
+## Key modules
+
+- `lib/github.ts` — Octokit wrappers (first-commit Link trick, early-stop release pages, 202 backoff on stats, soft-fail mega-repo contributor 403)
+- `lib/repolens.ts` — composes timeline events (4 types); contributor first-commits via concurrency pool; Redis single-flight + global build budget
+- `lib/build-lock.ts` / `lib/redis.ts` / `lib/rate-limit.ts` — Upstash lock, global budget, per-IP limit
+- `lib/cache.ts` / `lib/supabase.ts` — snapshot get/upsert; no-ops without env; Sentry on cache failures
+- `proxy.ts` — nonce CSP (Report-Only on response; Next 16 proxy convention)
+- `types/timeline.ts` — `Timeline` / event union + `TIMELINE_SCHEMA_VERSION`
+- `server/routers/timeline.ts` — tRPC `timeline.get`
+- `lib/trpc/server.tsx` — `createTRPCOptionsProxy` (`trpc`), `getQueryClient`, `HydrateClient`, `prefetch`, `caller`
+- `lib/trpc/client.tsx` — `useTRPC` + `TRPCReactProvider`
+- `lib/trpc/query-client.ts` — shared QueryClient (superjson + pending dehydrate; client-session `staleTime`/`gcTime`)
+- `lib/site-url.ts` — absolute origin (`NEXT_PUBLIC_SITE_URL` / Vercel / localhost) for `metadataBase` + tRPC
+- `components/error-state.tsx` — shared failure UI (`ErrorState`, `RefreshButton`, `ResetButton`)
+- `app/[owner]/[repo]/` — page (`generateMetadata` via shared `fetchQuery`) + `timeline-view` / `share-link-button` / skeleton / loading / error / not-found / `opengraph-image`
+- `app/error.tsx` / `app/not-found.tsx` / `app/global-error.tsx` — app-wide fallbacks
+- `app/[owner]/[repo]/event-config.tsx` — event-type → icon + color + label
+- `app/[owner]/[repo]/timeline-view.tsx` — repo header + alternating timeline UI + Motion reveal
+- `supabase/schemas/*.sql` — schema source of truth (`db diff` generates migrations)
+
+## v0.1 event types only
+
+`first_commit` | `release` | `top_contributor` | `activity_spike`
