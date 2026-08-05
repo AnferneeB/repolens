@@ -1,0 +1,1 @@
+ALTER TABLE public.repo_snapshots ENABLE ROW LEVEL SECURITY;
